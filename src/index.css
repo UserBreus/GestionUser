@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-nexus-darker text-slate-200 antialiased selection:bg-nexus-primary selection:text-white;
+    margin: 0;
+    min-height: 100vh;
+  }
+}
+
+.glass-panel {
+  @apply bg-nexus-card/50 backdrop-blur-xl border border-nexus-border/50 shadow-xl shadow-black/50;
+}
