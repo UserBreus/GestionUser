@@ -13,10 +13,10 @@ export default function Dashboard({ user, onLogout }: { user: any, onLogout: () 
         <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-nexus-primary to-nexus-accent"></div>
         <div className="flex items-center space-x-4 mb-4 sm:mb-0">
           <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-nexus-primary to-nexus-accent flex items-center justify-center text-xl font-bold text-white shadow-lg shadow-nexus-primary/20">
-            {user.username ? user.username.charAt(0).toUpperCase() : 'U'}
+            {user.id ? user.id.charAt(0).toUpperCase() : 'U'}
           </div>
           <div>
-            <h2 className="text-xl font-bold text-white">Hola, {user.nombre || user.username}</h2>
+            <h2 className="text-xl font-bold text-white">Hola, {user.nombre_completo || user.id}</h2>
             <p className="text-sm text-slate-400">Portal Central CRM</p>
           </div>
         </div>
