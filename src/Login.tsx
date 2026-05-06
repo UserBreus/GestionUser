@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { executeAWSQuery } from './lib/aws-client';
-import { Shield, Lock, User, Loader2 } from 'lucide-react';
+import { Shield, Lock, User, Loader2, MapPin } from 'lucide-react';
 
 export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
   const [username, setUsername] = useState('');
@@ -8,10 +8,24 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const [depositos, setDepositos] = useState<any[]>([]);
+  const [selectedDeposito, setSelectedDeposito] = useState('');
+
+  useEffect(() => {
+    executeAWSQuery('SELECT id, nombre, tipo FROM Stock_Depositos')
+      .then(data => setDepositos(data || []))
+      .catch(err => console.error("Error loading depositos", err));
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username || !password) {
       setError('Por favor, ingresa usuario y contraseña');
+      return;
+    }
+
+    if (!selectedDeposito) {
+      setError('Debes seleccionar tu ubicación de trabajo actual');
       return;
     }
 
@@ -22,8 +36,22 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
       const res = await executeAWSQuery(`SELECT * FROM usuarios WHERE id = '${username}' AND pass = '${password}'`);
       
       if (res && res.length > 0) {
-        localStorage.setItem('nexus_custom_user', JSON.stringify(res[0]));
-        onLogin(res[0]);
+        const depoRecord = depositos.find(d => d.id.toString() === selectedDeposito);
+        const enrichedUser = {
+            ...res[0],
+            sucursal_activa_id: parseInt(selectedDeposito),
+            sucursal_activa_nombre: depoRecord?.nombre
+        };
+        
+        // Register login audit session in the background
+        try {
+          await executeAWSQuery(`INSERT INTO Stock_Sesiones_Login (usuario_id, deposito_id) VALUES ('${res[0].id}', ${selectedDeposito})`);
+        } catch(audErr) {
+          console.error("No se pudo registrar la sesión de auditoría", audErr);
+        }
+
+        localStorage.setItem('nexus_custom_user', JSON.stringify(enrichedUser));
+        onLogin(enrichedUser);
       } else {
         setError('Usuario o contraseña incorrectos');
       }
@@ -82,6 +110,25 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Ubicación Actual</label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <MapPin className="h-5 w-5 text-slate-500" />
+              </div>
+              <select
+                className="block w-full pl-10 pr-3 py-3 border border-nexus-border rounded-xl bg-nexus-dark/50 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-nexus-primary focus:border-transparent transition-all appearance-none"
+                value={selectedDeposito}
+                onChange={(e) => setSelectedDeposito(e.target.value)}
+              >
+                <option value="" disabled>Seleccionar sucursal de turno...</option>
+                {depositos.map(d => (
+                  <option key={d.id} value={d.id}>{d.nombre} ({d.tipo})</option>
+                ))}
+              </select>
             </div>
           </div>
 
