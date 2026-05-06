@@ -14,6 +14,23 @@ function App() {
         console.error("Error parsing saved user", e);
       }
     }
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'nexus_custom_user') {
+        if (!e.newValue) {
+          setUser(null);
+        } else {
+          try {
+            setUser(JSON.parse(e.newValue));
+          } catch (e) {
+            console.error("Error parsing user from storage event", e);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   const handleLogin = (userData: any) => {
