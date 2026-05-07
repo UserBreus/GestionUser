@@ -61,6 +61,7 @@ export default function Dashboard({ user, onLogout }: { user: any, onLogout: () 
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {user?.is_super_admin || user?.permisos_obj?.apps?.includes('stock') ? (
         <a 
           href={stockUrl}
           className="group relative flex flex-col h-80 glass-panel rounded-3xl p-8 hover:bg-nexus-card hover:border-nexus-primary/50 transition-all duration-300 transform hover:-translate-y-2 overflow-hidden shadow-lg hover:shadow-nexus-primary/20"
@@ -81,7 +82,9 @@ export default function Dashboard({ user, onLogout }: { user: any, onLogout: () 
             </div>
           </div>
         </a>
+        ) : null}
 
+        {user?.is_super_admin || user?.permisos_obj?.apps?.includes('ventas') ? (
         <a 
           href={ventasUrl}
           className="group relative flex flex-col h-80 glass-panel rounded-3xl p-8 hover:bg-nexus-card hover:border-nexus-accent/50 transition-all duration-300 transform hover:-translate-y-2 overflow-hidden shadow-lg hover:shadow-nexus-accent/20"
@@ -102,6 +105,7 @@ export default function Dashboard({ user, onLogout }: { user: any, onLogout: () 
             </div>
           </div>
         </a>
+        ) : null}
       </div>
     </div>
   );

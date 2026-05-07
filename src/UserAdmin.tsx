@@ -140,6 +140,7 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
   const [hasStock, setHasStock] = useState(false);
   const [hasVentas, setHasVentas] = useState(false);
   const [requireLocation, setRequireLocation] = useState(true);
+  const [isActive, setIsActive] = useState(true);
   
   const [stockTools, setStockTools] = useState<Record<string, ToolPermission>>({});
   const [ventasTools, setVentasTools] = useState<Record<string, ToolPermission>>({});
@@ -207,6 +208,7 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
     setHasStock(false);
     setHasVentas(false);
     setRequireLocation(true);
+    setIsActive(true);
     setStockTools({});
     setVentasTools({});
     setExpandedTools([]);
@@ -220,6 +222,11 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
         }
         if (p.require_location !== undefined) {
           setRequireLocation(p.require_location);
+        }
+        if (p.active !== undefined) {
+          setIsActive(p.active);
+        } else {
+          setIsActive(true);
         }
         if (p.stock_tools) setStockTools(parseToolObj(p.stock_tools));
         if (p.ventas_tools) setVentasTools(parseToolObj(p.ventas_tools));
@@ -243,6 +250,7 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
     setHasStock(false);
     setHasVentas(false);
     setRequireLocation(true);
+    setIsActive(true);
     setStockTools({});
     setVentasTools({});
     setExpandedTools([]);
@@ -262,6 +270,7 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
 
     const permisosJson = JSON.stringify({
       version: 4,
+      active: isActive,
       apps,
       require_location: requireLocation,
       stock_tools: stockTools,
@@ -291,6 +300,23 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
       setEditingUser(null);
     } catch (err: any) {
       alert("Error al guardar: " + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!formOriginalId) return;
+    const confirmDelete = window.confirm(`¿Estás completamente seguro de eliminar al usuario ${formOriginalId}? Esta acción NO se puede deshacer.`);
+    if (!confirmDelete) return;
+
+    setSaving(true);
+    try {
+      await executeAWSQuery(`DELETE FROM usuarios WHERE id = '${formOriginalId}'`);
+      await loadUsers();
+      setEditingUser(null);
+    } catch (err: any) {
+      alert("Error al eliminar: " + err.message);
     } finally {
       setSaving(false);
     }
@@ -538,6 +564,14 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
                     {requireLocation ? <ToggleRight className="w-8 h-8 text-nexus-primary" /> : <ToggleLeft className="w-8 h-8 text-slate-600" />}
                   </div>
 
+                  <div className={`mb-6 border rounded-xl overflow-hidden p-4 flex items-center justify-between cursor-pointer transition-colors ${isActive ? 'bg-green-900/10 border-green-500/20 hover:bg-green-900/20' : 'bg-red-900/10 border-red-500/20 hover:bg-red-900/20'}`} onClick={() => setIsActive(!isActive)}>
+                    <div>
+                      <h4 className={`font-semibold ${isActive ? 'text-green-400' : 'text-red-400'}`}>Cuenta {isActive ? 'Habilitada' : 'Deshabilitada (Suspendida)'}</h4>
+                      <p className="text-xs text-slate-400">Si se deshabilita, el usuario no podrá iniciar sesión en ningún sistema.</p>
+                    </div>
+                    {isActive ? <ToggleRight className="w-8 h-8 text-green-500" /> : <ToggleLeft className="w-8 h-8 text-red-500" />}
+                  </div>
+
                   {/* APP STOCK */}
                   <div className="mb-6 bg-blue-900/10 border border-blue-500/20 rounded-xl overflow-hidden">
                     <div 
@@ -582,7 +616,18 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
               </div>
 
               {/* FOOTER ACTIONS */}
-              <div className="p-4 border-t border-nexus-border/50 bg-nexus-darker/80 flex justify-end">
+              <div className="p-4 border-t border-nexus-border/50 bg-nexus-darker/80 flex justify-between items-center">
+                {!isNewUser ? (
+                  <button
+                    onClick={handleDelete}
+                    disabled={saving}
+                    className="flex items-center px-4 py-2 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 text-red-400 rounded-xl font-medium transition-all disabled:opacity-50"
+                  >
+                    Eliminar Usuario
+                  </button>
+                ) : (
+                  <div></div>
+                )}
                 <button
                   onClick={handleSave}
                   disabled={saving}

@@ -42,6 +42,12 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
         const userRole = (res[0].rol || '').toLowerCase();
         const isAdmin = ['admin', 'administrador', 'administracion'].includes(userRole);
 
+        if (p.active === false) {
+            setError('Tu cuenta ha sido deshabilitada por un administrador.');
+            setLoading(false);
+            return;
+        }
+
         if (isAdmin) {
             // Forzar que el admin no requiera ubicación y tenga acceso global
             p.require_location = false;
