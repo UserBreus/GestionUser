@@ -24,11 +24,6 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
       return;
     }
 
-    if (!selectedDeposito) {
-      setError('Debes seleccionar tu ubicación de trabajo actual');
-      return;
-    }
-
     setLoading(true);
     setError('');
 
@@ -36,18 +31,33 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
       const res = await executeAWSQuery(`SELECT * FROM usuarios WHERE id = '${username}' AND pass = '${password}'`);
       
       if (res && res.length > 0) {
+        let p: any = {};
+        try {
+          if (res[0].permisos) p = JSON.parse(res[0].permisos);
+        } catch(e) {}
+        
+        const requireLoc = p.require_location !== false; // por defecto es true
+        
+        if (requireLoc && !selectedDeposito) {
+          setError('Debes seleccionar tu ubicación de trabajo actual');
+          setLoading(false);
+          return;
+        }
+
         const depoRecord = depositos.find(d => d.id.toString() === selectedDeposito);
         const enrichedUser = {
             ...res[0],
-            sucursal_activa_id: parseInt(selectedDeposito),
-            sucursal_activa_nombre: depoRecord?.nombre
+            sucursal_activa_id: selectedDeposito ? parseInt(selectedDeposito) : null,
+            sucursal_activa_nombre: depoRecord?.nombre || null
         };
         
         // Register login audit session in the background
-        try {
-          await executeAWSQuery(`INSERT INTO Stock_Sesiones_Login (usuario_id, deposito_id) VALUES ('${res[0].id}', ${selectedDeposito})`);
-        } catch(audErr) {
-          console.error("No se pudo registrar la sesión de auditoría", audErr);
+        if (selectedDeposito) {
+          try {
+            await executeAWSQuery(`INSERT INTO Stock_Sesiones_Login (usuario_id, deposito_id) VALUES ('${res[0].id}', ${selectedDeposito})`);
+          } catch(audErr) {
+            console.error("No se pudo registrar la sesión de auditoría", audErr);
+          }
         }
 
         localStorage.setItem('nexus_custom_user', JSON.stringify(enrichedUser));

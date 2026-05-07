@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { executeAWSQuery } from './lib/aws-client';
-import { Users, X, Save, Edit2, Shield, Plus, ToggleLeft, ToggleRight, Loader2, Check } from 'lucide-react';
+import { Users, X, Save, Edit2, Shield, Plus, ToggleLeft, ToggleRight, Loader2 } from 'lucide-react';
 
 interface User {
   id: string;
   nombre_completo: string;
   pass: string;
   rol: string;
+  cedula: string | null;
+  avatar: string | null;
   permisos: string | null;
 }
 
@@ -24,6 +26,8 @@ const VENTAS_TOOLS = [
   { id: 'facturacion', name: 'Facturación Electrónica' },
 ];
 
+type AccessLevel = 'none' | 'read' | 'write';
+
 export default function UserAdmin({ onBack }: { onBack: () => void }) {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,12 +43,15 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
   const [formNombre, setFormNombre] = useState('');
   const [formPass, setFormPass] = useState('');
   const [formRol, setFormRol] = useState('vendedor');
+  const [formCedula, setFormCedula] = useState('');
+  const [formAvatar, setFormAvatar] = useState('');
   
   // Permissions State
   const [hasStock, setHasStock] = useState(false);
   const [hasVentas, setHasVentas] = useState(false);
-  const [stockTools, setStockTools] = useState<string[]>([]);
-  const [ventasTools, setVentasTools] = useState<string[]>([]);
+  const [requireLocation, setRequireLocation] = useState(true);
+  const [stockTools, setStockTools] = useState<Record<string, AccessLevel>>({});
+  const [ventasTools, setVentasTools] = useState<Record<string, AccessLevel>>({});
 
   useEffect(() => {
     loadUsers();
@@ -53,7 +60,7 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
   const loadUsers = async () => {
     setLoading(true);
     try {
-      const data = await executeAWSQuery('SELECT id, nombre_completo, pass, rol, permisos FROM usuarios');
+      const data = await executeAWSQuery('SELECT id, nombre_completo, pass, rol, cedula, avatar, permisos FROM usuarios');
       setUsers(data || []);
     } catch (err: any) {
       setError('Error al cargar usuarios: ' + err.message);
@@ -70,12 +77,15 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
     setFormNombre(u.nombre_completo || '');
     setFormPass(u.pass || '');
     setFormRol(u.rol || 'vendedor');
+    setFormCedula(u.cedula || '');
+    setFormAvatar(u.avatar || '');
 
     // Parse Permissions
     setHasStock(false);
     setHasVentas(false);
-    setStockTools([]);
-    setVentasTools([]);
+    setRequireLocation(true);
+    setStockTools({});
+    setVentasTools({});
 
     if (u.permisos) {
       try {
@@ -83,16 +93,25 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
         if (p.apps) {
           setHasStock(p.apps.includes('stock'));
           setHasVentas(p.apps.includes('ventas'));
-        } else {
-          // Legacy support (flat array of strings)
-          if (Array.isArray(p)) {
-             setHasStock(true); // default old users to stock
-             const legacyTools = p.filter(x => typeof x === 'string').map(x => x.replace('sidebar_', ''));
-             setStockTools(legacyTools);
-          }
         }
-        if (p.stock_tools) setStockTools(p.stock_tools);
-        if (p.ventas_tools) setVentasTools(p.ventas_tools);
+        if (p.require_location !== undefined) {
+          setRequireLocation(p.require_location);
+        }
+
+        const parseToolObj = (t: any) => {
+          if (!t) return {};
+          if (Array.isArray(t)) {
+            // Convert old array format to 'write'
+            const obj: Record<string, AccessLevel> = {};
+            t.forEach(k => obj[k] = 'write');
+            return obj;
+          }
+          return t;
+        };
+
+        if (p.stock_tools) setStockTools(parseToolObj(p.stock_tools));
+        if (p.ventas_tools) setVentasTools(parseToolObj(p.ventas_tools));
+
       } catch(e) {
         console.error("Error parsing user permissions", e);
       }
@@ -101,16 +120,19 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
 
   const handleCreate = () => {
     setIsNewUser(true);
-    setEditingUser({ id: '', nombre_completo: '', pass: '', rol: 'vendedor', permisos: null });
+    setEditingUser({ id: '', nombre_completo: '', pass: '', rol: 'vendedor', cedula: null, avatar: null, permisos: null });
     setFormId('');
     setFormOriginalId('');
     setFormNombre('');
     setFormPass('');
     setFormRol('vendedor');
+    setFormCedula('');
+    setFormAvatar('');
     setHasStock(false);
     setHasVentas(false);
-    setStockTools([]);
-    setVentasTools([]);
+    setRequireLocation(true);
+    setStockTools({});
+    setVentasTools({});
   };
 
   const handleSave = async () => {
@@ -126,8 +148,9 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
     if (hasVentas) apps.push('ventas');
 
     const permisosJson = JSON.stringify({
-      version: 2,
+      version: 3,
       apps,
+      require_location: requireLocation,
       stock_tools: stockTools,
       ventas_tools: ventasTools
     });
@@ -135,8 +158,8 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
     try {
       if (isNewUser) {
         await executeAWSQuery(`
-          INSERT INTO usuarios (id, nombre_completo, pass, rol, permisos) 
-          VALUES ('${formId}', '${formNombre}', '${formPass}', '${formRol}', '${permisosJson}')
+          INSERT INTO usuarios (id, nombre_completo, pass, rol, cedula, avatar, permisos) 
+          VALUES ('${formId}', '${formNombre}', '${formPass}', '${formRol}', '${formCedula}', '${formAvatar}', '${permisosJson}')
         `);
       } else {
         await executeAWSQuery(`
@@ -145,6 +168,8 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
               nombre_completo = '${formNombre}', 
               pass = '${formPass}', 
               rol = '${formRol}', 
+              cedula = '${formCedula}',
+              avatar = '${formAvatar}',
               permisos = '${permisosJson}' 
           WHERE id = '${formOriginalId}'
         `);
@@ -168,7 +193,7 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
           </div>
           <div>
             <h1 className="text-2xl font-bold">Gestión de Usuarios</h1>
-            <p className="text-slate-400 text-sm">Control de accesos y permisos globales</p>
+            <p className="text-slate-400 text-sm">Control de accesos, datos base y permisos granulares</p>
           </div>
         </div>
         <div className="flex items-center space-x-4">
@@ -200,9 +225,10 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
           {/* USER LIST */}
-          <div className="lg:col-span-1 glass-panel rounded-2xl overflow-hidden flex flex-col max-h-[700px]">
-            <div className="p-4 border-b border-nexus-border/50 bg-nexus-darker/50">
-              <h2 className="font-semibold text-slate-200">Directorio ({users.length})</h2>
+          <div className="lg:col-span-1 glass-panel rounded-2xl overflow-hidden flex flex-col max-h-[800px]">
+            <div className="p-4 border-b border-nexus-border/50 bg-nexus-darker/50 flex justify-between items-center">
+              <h2 className="font-semibold text-slate-200">Directorio</h2>
+              <span className="text-xs bg-nexus-primary/20 text-nexus-primary px-2 py-1 rounded-full">{users.length}</span>
             </div>
             <div className="overflow-y-auto p-2 flex-1 space-y-1 custom-scrollbar">
               {users.map(u => (
@@ -238,7 +264,7 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
                 
                 {/* Datos Básicos */}
                 <section>
-                  <h3 className="text-sm font-bold text-nexus-primary uppercase tracking-wider mb-4 border-b border-nexus-border/50 pb-2">Datos Base</h3>
+                  <h3 className="text-sm font-bold text-nexus-primary uppercase tracking-wider mb-4 border-b border-nexus-border/50 pb-2">Todos los Datos (Tabla Usuarios)</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs text-slate-400 mb-1">ID (Username) *</label>
@@ -279,17 +305,43 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
                         <option value="admin">Administrador</option>
                       </select>
                     </div>
+                    <div>
+                      <label className="block text-xs text-slate-400 mb-1">Cédula</label>
+                      <input 
+                        type="text" 
+                        value={formCedula} 
+                        onChange={e => setFormCedula(e.target.value)}
+                        className="w-full bg-nexus-dark border border-nexus-border rounded-lg px-3 py-2 text-sm focus:border-nexus-primary outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-slate-400 mb-1">URL Avatar (Opcional)</label>
+                      <input 
+                        type="text" 
+                        value={formAvatar} 
+                        onChange={e => setFormAvatar(e.target.value)}
+                        className="w-full bg-nexus-dark border border-nexus-border rounded-lg px-3 py-2 text-sm focus:border-nexus-primary outline-none"
+                      />
+                    </div>
                   </div>
                 </section>
 
-                {/* Acceso a Módulos */}
+                {/* Acceso a Módulos y Toggles globales */}
                 <section>
-                  <h3 className="text-sm font-bold text-nexus-primary uppercase tracking-wider mb-4 border-b border-nexus-border/50 pb-2">Acceso a Aplicaciones</h3>
+                  <h3 className="text-sm font-bold text-nexus-primary uppercase tracking-wider mb-4 border-b border-nexus-border/50 pb-2">Configuración de Seguridad</h3>
                   
+                  <div className="mb-6 bg-slate-800/30 border border-slate-700/50 rounded-xl overflow-hidden p-4 flex items-center justify-between cursor-pointer hover:bg-slate-800/50" onClick={() => setRequireLocation(!requireLocation)}>
+                    <div>
+                      <h4 className="font-semibold text-slate-200">Obligar a elegir Ubicación / Sucursal en el Login</h4>
+                      <p className="text-xs text-slate-400">Si está apagado, el usuario podrá entrar sin declarar una sucursal activa.</p>
+                    </div>
+                    {requireLocation ? <ToggleRight className="w-8 h-8 text-nexus-primary" /> : <ToggleLeft className="w-8 h-8 text-slate-600" />}
+                  </div>
+
                   {/* APP STOCK */}
                   <div className="mb-6 bg-blue-900/10 border border-blue-500/20 rounded-xl overflow-hidden">
                     <div 
-                      className="p-4 flex items-center justify-between cursor-pointer hover:bg-blue-900/20"
+                      className="p-4 flex items-center justify-between cursor-pointer hover:bg-blue-900/20 border-b border-blue-500/10"
                       onClick={() => setHasStock(!hasStock)}
                     >
                       <div>
@@ -300,15 +352,25 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
                     </div>
                     
                     {hasStock && (
-                      <div className="p-4 border-t border-blue-500/10 bg-black/20 grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {STOCK_TOOLS.map(tool => (
-                          <div key={tool.id} onClick={() => setStockTools(prev => prev.includes(tool.id) ? prev.filter(t => t !== tool.id) : [...prev, tool.id])} className="flex items-center space-x-3 cursor-pointer group">
-                            <div className={`w-5 h-5 rounded border flex items-center justify-center ${stockTools.includes(tool.id) ? 'bg-blue-500 border-blue-500' : 'border-slate-600 group-hover:border-blue-400'}`}>
-                              {stockTools.includes(tool.id) && <Check className="w-3 h-3 text-white" />}
+                      <div className="p-4 bg-black/20 flex flex-col space-y-4">
+                        <p className="text-xs text-blue-300 font-semibold mb-2">Permisos por Herramienta (Solo Lectura o Manipular):</p>
+                        {STOCK_TOOLS.map(tool => {
+                          const level = stockTools[tool.id] || 'none';
+                          return (
+                            <div key={tool.id} className="flex flex-col sm:flex-row sm:items-center justify-between bg-black/40 p-3 rounded-lg border border-slate-800">
+                              <span className="text-sm text-slate-300 mb-2 sm:mb-0">{tool.name}</span>
+                              <select 
+                                value={level} 
+                                onChange={e => setStockTools(prev => ({...prev, [tool.id]: e.target.value as AccessLevel}))}
+                                className="bg-nexus-dark border border-nexus-border rounded-lg px-3 py-1 text-xs focus:border-blue-400 outline-none text-slate-200"
+                              >
+                                <option value="none">Sin Acceso</option>
+                                <option value="read">Solo Lectura (Ver)</option>
+                                <option value="write">Control Total (Manipular)</option>
+                              </select>
                             </div>
-                            <span className="text-sm text-slate-300 group-hover:text-white">{tool.name}</span>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -316,7 +378,7 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
                   {/* APP VENTAS */}
                   <div className="bg-purple-900/10 border border-purple-500/20 rounded-xl overflow-hidden">
                     <div 
-                      className="p-4 flex items-center justify-between cursor-pointer hover:bg-purple-900/20"
+                      className="p-4 flex items-center justify-between cursor-pointer hover:bg-purple-900/20 border-b border-purple-500/10"
                       onClick={() => setHasVentas(!hasVentas)}
                     >
                       <div>
@@ -327,15 +389,25 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
                     </div>
                     
                     {hasVentas && (
-                      <div className="p-4 border-t border-purple-500/10 bg-black/20 grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {VENTAS_TOOLS.map(tool => (
-                          <div key={tool.id} onClick={() => setVentasTools(prev => prev.includes(tool.id) ? prev.filter(t => t !== tool.id) : [...prev, tool.id])} className="flex items-center space-x-3 cursor-pointer group">
-                            <div className={`w-5 h-5 rounded border flex items-center justify-center ${ventasTools.includes(tool.id) ? 'bg-purple-500 border-purple-500' : 'border-slate-600 group-hover:border-purple-400'}`}>
-                              {ventasTools.includes(tool.id) && <Check className="w-3 h-3 text-white" />}
+                      <div className="p-4 bg-black/20 flex flex-col space-y-4">
+                        <p className="text-xs text-purple-300 font-semibold mb-2">Permisos por Herramienta (Solo Lectura o Manipular):</p>
+                        {VENTAS_TOOLS.map(tool => {
+                          const level = ventasTools[tool.id] || 'none';
+                          return (
+                            <div key={tool.id} className="flex flex-col sm:flex-row sm:items-center justify-between bg-black/40 p-3 rounded-lg border border-slate-800">
+                              <span className="text-sm text-slate-300 mb-2 sm:mb-0">{tool.name}</span>
+                              <select 
+                                value={level} 
+                                onChange={e => setVentasTools(prev => ({...prev, [tool.id]: e.target.value as AccessLevel}))}
+                                className="bg-nexus-dark border border-nexus-border rounded-lg px-3 py-1 text-xs focus:border-purple-400 outline-none text-slate-200"
+                              >
+                                <option value="none">Sin Acceso</option>
+                                <option value="read">Solo Lectura (Ver)</option>
+                                <option value="write">Control Total (Manipular)</option>
+                              </select>
                             </div>
-                            <span className="text-sm text-slate-300 group-hover:text-white">{tool.name}</span>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -348,7 +420,7 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
                 <button
                   onClick={handleSave}
                   disabled={saving}
-                  className="flex items-center px-6 py-2 bg-gradient-to-r from-nexus-primary to-nexus-accent hover:from-nexus-primaryHover hover:to-nexus-accent text-white rounded-xl font-medium transition-all disabled:opacity-50"
+                  className="flex items-center px-6 py-2 bg-gradient-to-r from-nexus-primary to-nexus-accent hover:from-nexus-primaryHover hover:to-nexus-accent text-white rounded-xl font-medium transition-all disabled:opacity-50 shadow-lg shadow-nexus-primary/20"
                 >
                   {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
                   Guardar Cambios
@@ -359,7 +431,7 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
             <div className="lg:col-span-2 glass-panel rounded-2xl flex flex-col items-center justify-center p-12 text-center border-dashed border-2 border-slate-700/50">
               <Shield className="w-16 h-16 text-slate-700 mb-4" />
               <h2 className="text-xl font-bold text-slate-400">Selecciona un usuario</h2>
-              <p className="text-slate-500 mt-2 max-w-md">Elige un usuario del directorio para modificar sus accesos y herramientas, o crea uno nuevo.</p>
+              <p className="text-slate-500 mt-2 max-w-md">Elige un usuario del directorio para modificar todos los datos de la base, sus accesos y permisos granulares de lectura/escritura.</p>
             </div>
           )}
         </div>
