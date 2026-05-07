@@ -521,15 +521,19 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
                     </div>
                     <div>
                       <label className="block text-xs text-slate-400 mb-1">Rol Global *</label>
-                      <select 
+                      <input 
+                        type="text"
+                        list="roles-list"
                         value={formRol} 
                         onChange={e => setFormRol(e.target.value)}
+                        placeholder="Ej. vendedor, admin, nuevo_rol..."
                         className="w-full bg-nexus-dark border border-nexus-border rounded-lg px-3 py-2 text-sm focus:border-nexus-primary outline-none"
-                      >
-                        <option value="vendedor">Vendedor</option>
-                        <option value="encargado">Encargado</option>
-                        <option value="admin">Administrador</option>
-                      </select>
+                      />
+                      <datalist id="roles-list">
+                        {Array.from(new Set(users.map(u => u.rol).filter(Boolean))).map(r => (
+                          <option key={r} value={r} />
+                        ))}
+                      </datalist>
                     </div>
                     <div>
                       <label className="block text-xs text-slate-400 mb-1">Cédula</label>
