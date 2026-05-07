@@ -14,75 +14,101 @@ interface User {
 
 const STOCK_TOOLS = [
   { 
-    id: 'dashboard', 
-    name: 'Dashboard Principal',
+    id: 'sidebar_dashboard', 
+    name: '🖥️ Panel de Control',
     subTools: [] 
   },
   { 
-    id: 'inventario', 
-    name: 'Gestión de Inventario',
+    id: 'sidebar_inventario', 
+    name: '🌍 Inventario Global (Gerencial)',
     subTools: [
-      { id: 'ver_costos', name: 'Ver Precio de Costo' },
-      { id: 'editar_precios', name: 'Modificar Precios' },
-      { id: 'crear_producto', name: 'Crear Nuevos Productos' },
-      { id: 'eliminar_producto', name: 'Eliminar Productos' },
-      { id: 'ajuste_stock', name: 'Ajuste Manual de Stock' }
+      { id: 'hub_ingresar', name: 'Botón: Ingresar Stock' },
+      { id: 'hub_trasladar', name: 'Botón: Trasladar' },
+      { id: 'hub_solicitudes', name: 'Botón: Órdenes Solicitadas' },
+      { id: 'hub_retirar', name: 'Botón: Retirar Stock' },
+      { id: 'hub_etiquetas', name: 'Botón: Generar Etiqueta' },
+      { id: 'hub_pesos', name: 'Botón: Registro de Peso' },
+      { id: 'tab_inventario', name: 'Pestaña: Inventario (Patrimonio)' },
+      { id: 'tab_historial', name: 'Pestaña: Historial Remitos' }
     ]
   },
   { 
-    id: 'remitos', 
-    name: 'Historial de Remitos',
+    id: 'sidebar_sectores', 
+    name: '📦 Mi Sector (Operativo)',
     subTools: [
-      { id: 'crear_remito', name: 'Crear Remito' },
-      { id: 'anular_remito', name: 'Anular Remito' },
-      { id: 'imprimir_remito', name: 'Imprimir/PDF' }
+      { id: 'op_consumir', name: 'Botón: Consumir Lote Físico' },
+      { id: 'op_recibir', name: 'Pestaña: Controlar y Recibir Remitos' },
+      { id: 'op_solicitar', name: 'Pestaña: Pedir Insumos a Central' }
     ]
   },
   { 
-    id: 'solicitudes', 
-    name: 'Módulo de Solicitudes',
+    id: 'sidebar_compras', 
+    name: '🚚 Compras e Ingresos',
     subTools: [
-      { id: 'aprobar_solicitud', name: 'Aprobar Solicitudes' },
-      { id: 'rechazar_solicitud', name: 'Rechazar Solicitudes' }
+      { id: 'ver_compras', name: 'Ver Órdenes de Compra' },
+      { id: 'crear_compra', name: 'Crear Nueva Orden' }
+    ]
+  },
+  { 
+    id: 'sidebar_sistema', 
+    name: '⚙️ Gestión de Sistema',
+    subTools: [
+      { id: 'gestion_productos', name: 'ABM de Productos' },
+      { id: 'gestion_usuarios', name: 'ABM de Usuarios' },
+      { id: 'gestion_alertas', name: 'Configurar Alertas' }
     ]
   },
 ];
 
 const VENTAS_TOOLS = [
   { 
-    id: 'pos', 
-    name: 'Punto de Venta (Caja)',
+    id: 'dashboard', 
+    name: '📊 Panel General (Ventas)',
+    subTools: []
+  },
+  { 
+    id: 'clients', 
+    name: '👥 Cartera de Clientes',
     subTools: [
-      { id: 'aplicar_descuento', name: 'Aplicar Descuentos Manuales' },
-      { id: 'cancelar_venta', name: 'Cancelar Venta Actual' },
-      { id: 'ver_caja', name: 'Ver Arqueo de Caja' }
+      { id: 'crear_cliente', name: 'Botón: Nuevo Cliente' },
+      { id: 'editar_cliente', name: 'Botón: Editar Cliente' },
+      { id: 'exportar_excel', name: 'Botón: Exportar a Excel' }
     ]
   },
   { 
-    id: 'clientes', 
-    name: 'Gestión de Clientes',
+    id: 'interactions', 
+    name: '💬 Seguimiento / Hilos',
     subTools: [
-      { id: 'crear_cliente', name: 'Crear Clientes' },
-      { id: 'editar_cliente', name: 'Editar Clientes' },
-      { id: 'eliminar_cliente', name: 'Eliminar Clientes' }
+      { id: 'crear_hilo', name: 'Iniciar Hilo de Seguimiento' }
     ]
   },
   { 
-    id: 'reportes', 
-    name: 'Reportes y Métricas',
+    id: 'visor', 
+    name: '👀 Visor Local',
+    subTools: []
+  },
+  { 
+    id: 'import', 
+    name: '📁 Directorio Global (Base)',
     subTools: [
-      { id: 'exportar_excel', name: 'Exportar a Excel' },
-      { id: 'ver_ganancias', name: 'Ver Ganancias Netas' }
+      { id: 'importar_base', name: 'Botón: Importar Clientes' }
     ]
   },
   { 
-    id: 'facturacion', 
-    name: 'Facturación Electrónica',
-    subTools: [
-      { id: 'emitir_nota_credito', name: 'Emitir Notas de Crédito' },
-      { id: 'reenviar_dgi', name: 'Reenviar a DGI' }
-    ]
+    id: 'team', 
+    name: '🏆 Ranking de Equipo',
+    subTools: []
   },
+  { 
+    id: 'admin', 
+    name: '⚙️ Panel de Control (Admin)',
+    subTools: []
+  },
+  { 
+    id: 'monitor', 
+    name: '🌐 Monitor de Red',
+    subTools: []
+  }
 ];
 
 type AccessLevel = 'none' | 'read' | 'write';
