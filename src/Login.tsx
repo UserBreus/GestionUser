@@ -36,8 +36,20 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
       if (res && res.length > 0) {
         let p: any = {};
         try {
-          if (res[0].permisos) p = JSON.parse(res[0].permisos);
+          if (res[0].permisos) p = typeof res[0].permisos === 'string' ? JSON.parse(res[0].permisos) : res[0].permisos;
         } catch(e) {}
+        
+        const userRole = (res[0].rol || '').toLowerCase();
+        const isAdmin = ['admin', 'administrador', 'administracion'].includes(userRole);
+
+        if (isAdmin) {
+            // Forzar que el admin no requiera ubicación y tenga acceso global
+            p.require_location = false;
+            res[0].is_super_admin = true; // Flag for other projects
+        }
+
+        // Add parsed object so other projects don't have to parse the string manually
+        res[0].permisos_obj = p;
         
         const requireLoc = p.require_location !== false; // por defecto es true
         
