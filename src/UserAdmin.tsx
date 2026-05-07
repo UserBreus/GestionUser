@@ -120,6 +120,7 @@ interface ToolPermission {
 
 export default function UserAdmin({ onBack }: { onBack: () => void }) {
   const [users, setUsers] = useState<User[]>([]);
+  const [dbRoles, setDbRoles] = useState<{id: string, nombre: string}[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
@@ -142,6 +143,10 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
   const [requireLocation, setRequireLocation] = useState(true);
   const [isActive, setIsActive] = useState(true);
   
+  // Role Management State
+  const [newRoleName, setNewRoleName] = useState('');
+  const [showRoleManager, setShowRoleManager] = useState(false);
+  
   const [stockTools, setStockTools] = useState<Record<string, ToolPermission>>({});
   const [ventasTools, setVentasTools] = useState<Record<string, ToolPermission>>({});
 
@@ -157,10 +162,42 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
     try {
       const data = await executeAWSQuery('SELECT id, nombre_completo, pass, rol, cedula, avatar, permisos FROM usuarios');
       setUsers(data || []);
+      
+      const rolesData = await executeAWSQuery('SELECT id, nombre FROM roles');
+      setDbRoles(rolesData || []);
     } catch (err: any) {
-      setError('Error al cargar usuarios: ' + err.message);
+      setError('Error al cargar datos: ' + err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCreateRole = async () => {
+    if (!newRoleName.trim()) return;
+    const roleId = newRoleName.trim().toLowerCase().replace(/\s+/g, '_');
+    setSaving(true);
+    try {
+      await executeAWSQuery(`INSERT INTO roles (id, nombre) VALUES ('${roleId}', '${newRoleName.trim()}')`);
+      await loadUsers();
+      setNewRoleName('');
+    } catch (e: any) {
+      alert("Error al crear rol: " + e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteRole = async (roleId: string) => {
+    const confirm = window.confirm(`¿Seguro que deseas eliminar el rol ${roleId}? Los usuarios con este rol podrían perder accesos por defecto.`);
+    if (!confirm) return;
+    setSaving(true);
+    try {
+      await executeAWSQuery(`DELETE FROM roles WHERE id = '${roleId}'`);
+      await loadUsers();
+    } catch (e: any) {
+      alert("Error al eliminar rol: " + e.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -519,21 +556,62 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
                         className="w-full bg-nexus-dark border border-nexus-border rounded-lg px-3 py-2 text-sm focus:border-nexus-primary outline-none"
                       />
                     </div>
-                    <div>
-                      <label className="block text-xs text-slate-400 mb-1">Rol Global *</label>
-                      <input 
-                        type="text"
-                        list="roles-list"
+                    <div className="col-span-1 md:col-span-2 bg-nexus-darker border border-nexus-border/50 p-4 rounded-xl">
+                      <div className="flex justify-between items-center mb-2">
+                        <label className="block text-xs font-bold text-nexus-primary uppercase">Rol Global *</label>
+                        <button 
+                          onClick={() => setShowRoleManager(!showRoleManager)}
+                          className="text-xs text-slate-400 hover:text-white flex items-center"
+                        >
+                          {showRoleManager ? 'Ocultar Gestor' : '⚙️ Gestionar Roles'}
+                        </button>
+                      </div>
+                      
+                      {showRoleManager ? (
+                        <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700/50 mb-3 space-y-4 animate-fade-in">
+                          <p className="text-xs text-slate-400">Crea o elimina roles maestros en la base de datos.</p>
+                          <div className="flex space-x-2">
+                            <input 
+                              type="text" 
+                              value={newRoleName} 
+                              onChange={e => setNewRoleName(e.target.value)}
+                              placeholder="Nombre del nuevo rol..."
+                              className="flex-1 bg-black/50 border border-slate-700 rounded px-3 py-1.5 text-sm focus:border-nexus-primary outline-none"
+                            />
+                            <button 
+                              onClick={handleCreateRole}
+                              disabled={saving || !newRoleName.trim()}
+                              className="bg-nexus-primary hover:bg-nexus-primaryHover text-white px-3 py-1.5 rounded text-sm disabled:opacity-50"
+                            >
+                              Crear
+                            </button>
+                          </div>
+                          <div className="space-y-1">
+                            {dbRoles.map(r => (
+                              <div key={r.id} className="flex justify-between items-center bg-black/30 px-3 py-2 rounded text-sm">
+                                <span className="text-slate-300">{r.nombre} <span className="text-xs text-slate-500">({r.id})</span></span>
+                                <button 
+                                  onClick={() => handleDeleteRole(r.id)}
+                                  className="text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded bg-red-900/20"
+                                >
+                                  Eliminar
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+
+                      <select 
                         value={formRol} 
                         onChange={e => setFormRol(e.target.value)}
-                        placeholder="Ej. vendedor, admin, nuevo_rol..."
                         className="w-full bg-nexus-dark border border-nexus-border rounded-lg px-3 py-2 text-sm focus:border-nexus-primary outline-none"
-                      />
-                      <datalist id="roles-list">
-                        {Array.from(new Set(users.map(u => u.rol).filter(Boolean))).map(r => (
-                          <option key={r} value={r} />
+                      >
+                        <option value="">-- Seleccionar Rol --</option>
+                        {dbRoles.map(r => (
+                          <option key={r.id} value={r.id}>{r.nombre}</option>
                         ))}
-                      </datalist>
+                      </select>
                     </div>
                     <div>
                       <label className="block text-xs text-slate-400 mb-1">Cédula</label>
