@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { executeAWSQuery } from './lib/aws-client';
-import { Users, X, Save, Edit2, Shield, Plus, ToggleLeft, ToggleRight, Loader2 } from 'lucide-react';
+import { Users, X, Save, Edit2, Shield, Plus, ToggleLeft, ToggleRight, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
 
 interface User {
   id: string;
@@ -13,20 +13,84 @@ interface User {
 }
 
 const STOCK_TOOLS = [
-  { id: 'dashboard', name: 'Dashboard Principal' },
-  { id: 'inventario', name: 'Gestión de Inventario' },
-  { id: 'remitos', name: 'Historial de Remitos' },
-  { id: 'solicitudes', name: 'Módulo de Solicitudes' },
+  { 
+    id: 'dashboard', 
+    name: 'Dashboard Principal',
+    subTools: [] 
+  },
+  { 
+    id: 'inventario', 
+    name: 'Gestión de Inventario',
+    subTools: [
+      { id: 'ver_costos', name: 'Ver Precio de Costo' },
+      { id: 'editar_precios', name: 'Modificar Precios' },
+      { id: 'crear_producto', name: 'Crear Nuevos Productos' },
+      { id: 'eliminar_producto', name: 'Eliminar Productos' },
+      { id: 'ajuste_stock', name: 'Ajuste Manual de Stock' }
+    ]
+  },
+  { 
+    id: 'remitos', 
+    name: 'Historial de Remitos',
+    subTools: [
+      { id: 'crear_remito', name: 'Crear Remito' },
+      { id: 'anular_remito', name: 'Anular Remito' },
+      { id: 'imprimir_remito', name: 'Imprimir/PDF' }
+    ]
+  },
+  { 
+    id: 'solicitudes', 
+    name: 'Módulo de Solicitudes',
+    subTools: [
+      { id: 'aprobar_solicitud', name: 'Aprobar Solicitudes' },
+      { id: 'rechazar_solicitud', name: 'Rechazar Solicitudes' }
+    ]
+  },
 ];
 
 const VENTAS_TOOLS = [
-  { id: 'pos', name: 'Punto de Venta (Caja)' },
-  { id: 'clientes', name: 'Gestión de Clientes' },
-  { id: 'reportes', name: 'Reportes y Métricas' },
-  { id: 'facturacion', name: 'Facturación Electrónica' },
+  { 
+    id: 'pos', 
+    name: 'Punto de Venta (Caja)',
+    subTools: [
+      { id: 'aplicar_descuento', name: 'Aplicar Descuentos Manuales' },
+      { id: 'cancelar_venta', name: 'Cancelar Venta Actual' },
+      { id: 'ver_caja', name: 'Ver Arqueo de Caja' }
+    ]
+  },
+  { 
+    id: 'clientes', 
+    name: 'Gestión de Clientes',
+    subTools: [
+      { id: 'crear_cliente', name: 'Crear Clientes' },
+      { id: 'editar_cliente', name: 'Editar Clientes' },
+      { id: 'eliminar_cliente', name: 'Eliminar Clientes' }
+    ]
+  },
+  { 
+    id: 'reportes', 
+    name: 'Reportes y Métricas',
+    subTools: [
+      { id: 'exportar_excel', name: 'Exportar a Excel' },
+      { id: 'ver_ganancias', name: 'Ver Ganancias Netas' }
+    ]
+  },
+  { 
+    id: 'facturacion', 
+    name: 'Facturación Electrónica',
+    subTools: [
+      { id: 'emitir_nota_credito', name: 'Emitir Notas de Crédito' },
+      { id: 'reenviar_dgi', name: 'Reenviar a DGI' }
+    ]
+  },
 ];
 
 type AccessLevel = 'none' | 'read' | 'write';
+
+interface ToolPermission {
+  access: AccessLevel;
+  sub: Record<string, AccessLevel>;
+}
 
 export default function UserAdmin({ onBack }: { onBack: () => void }) {
   const [users, setUsers] = useState<User[]>([]);
@@ -50,8 +114,12 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
   const [hasStock, setHasStock] = useState(false);
   const [hasVentas, setHasVentas] = useState(false);
   const [requireLocation, setRequireLocation] = useState(true);
-  const [stockTools, setStockTools] = useState<Record<string, AccessLevel>>({});
-  const [ventasTools, setVentasTools] = useState<Record<string, AccessLevel>>({});
+  
+  const [stockTools, setStockTools] = useState<Record<string, ToolPermission>>({});
+  const [ventasTools, setVentasTools] = useState<Record<string, ToolPermission>>({});
+
+  // UI State for accordions
+  const [expandedTools, setExpandedTools] = useState<string[]>([]);
 
   useEffect(() => {
     loadUsers();
@@ -69,6 +137,36 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
     }
   };
 
+  const parseToolObj = (t: any): Record<string, ToolPermission> => {
+    if (!t) return {};
+    const obj: Record<string, ToolPermission> = {};
+    
+    // Legacy support (array)
+    if (Array.isArray(t)) {
+      t.forEach(k => {
+        obj[k] = { access: 'write', sub: {} };
+      });
+      return obj;
+    }
+
+    // Object format support
+    Object.keys(t).forEach(k => {
+      const val = t[k];
+      if (typeof val === 'string') {
+        // v3 format: "inventario": "write"
+        obj[k] = { access: val as AccessLevel, sub: {} };
+      } else if (typeof val === 'object') {
+        // v4 format: "inventario": { access: "write", sub: { ... } }
+        obj[k] = {
+          access: val.access || 'none',
+          sub: val.sub || {}
+        };
+      }
+    });
+
+    return obj;
+  };
+
   const handleEdit = (u: User) => {
     setEditingUser(u);
     setIsNewUser(false);
@@ -80,12 +178,12 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
     setFormCedula(u.cedula || '');
     setFormAvatar(u.avatar || '');
 
-    // Parse Permissions
     setHasStock(false);
     setHasVentas(false);
     setRequireLocation(true);
     setStockTools({});
     setVentasTools({});
+    setExpandedTools([]);
 
     if (u.permisos) {
       try {
@@ -97,18 +195,6 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
         if (p.require_location !== undefined) {
           setRequireLocation(p.require_location);
         }
-
-        const parseToolObj = (t: any) => {
-          if (!t) return {};
-          if (Array.isArray(t)) {
-            // Convert old array format to 'write'
-            const obj: Record<string, AccessLevel> = {};
-            t.forEach(k => obj[k] = 'write');
-            return obj;
-          }
-          return t;
-        };
-
         if (p.stock_tools) setStockTools(parseToolObj(p.stock_tools));
         if (p.ventas_tools) setVentasTools(parseToolObj(p.ventas_tools));
 
@@ -133,6 +219,7 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
     setRequireLocation(true);
     setStockTools({});
     setVentasTools({});
+    setExpandedTools([]);
   };
 
   const handleSave = async () => {
@@ -148,7 +235,7 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
     if (hasVentas) apps.push('ventas');
 
     const permisosJson = JSON.stringify({
-      version: 3,
+      version: 4,
       apps,
       require_location: requireLocation,
       stock_tools: stockTools,
@@ -183,6 +270,93 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
     }
   };
 
+  const toggleExpand = (toolId: string) => {
+    setExpandedTools(prev => prev.includes(toolId) ? prev.filter(t => t !== toolId) : [...prev, toolId]);
+  };
+
+  const renderToolEditor = (
+    tool: any, 
+    toolState: Record<string, ToolPermission>, 
+    setToolState: React.Dispatch<React.SetStateAction<Record<string, ToolPermission>>>
+  ) => {
+    const perm = toolState[tool.id] || { access: 'none', sub: {} };
+    const isExpanded = expandedTools.includes(tool.id);
+    const hasSub = tool.subTools && tool.subTools.length > 0;
+
+    return (
+      <div key={tool.id} className="bg-black/40 rounded-lg border border-slate-800 overflow-hidden">
+        {/* Main Tool Row */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 border-b border-transparent">
+          <div className="flex items-center space-x-2 mb-2 sm:mb-0">
+            {hasSub ? (
+              <button 
+                onClick={() => toggleExpand(tool.id)}
+                className="p-1 hover:bg-slate-700 rounded transition-colors text-slate-400 hover:text-white"
+              >
+                {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+              </button>
+            ) : (
+              <div className="w-6" /> // spacer
+            )}
+            <span className="text-sm text-slate-300 font-medium">{tool.name}</span>
+          </div>
+          
+          <select 
+            value={perm.access} 
+            onChange={e => {
+              const val = e.target.value as AccessLevel;
+              setToolState(prev => ({
+                ...prev,
+                [tool.id]: { ...perm, access: val }
+              }));
+            }}
+            className="bg-nexus-dark border border-nexus-border rounded-lg px-3 py-1 text-xs focus:border-nexus-primary outline-none text-slate-200 ml-8 sm:ml-0"
+          >
+            <option value="none">Sin Acceso</option>
+            <option value="read">Solo Lectura (Ver)</option>
+            <option value="write">Control Total (Editar)</option>
+          </select>
+        </div>
+
+        {/* Sub Tools Panel */}
+        {hasSub && isExpanded && (
+          <div className="bg-black/60 p-3 pl-12 border-t border-slate-800 space-y-3">
+            <p className="text-xs text-slate-500 mb-2">Permisos Específicos:</p>
+            {tool.subTools.map((sub: any) => {
+              const subAccess = perm.sub[sub.id] || 'none';
+              return (
+                <div key={sub.id} className="flex flex-col sm:flex-row sm:items-center justify-between">
+                  <span className="text-xs text-slate-400 mb-1 sm:mb-0">{sub.name}</span>
+                  <select 
+                    value={subAccess} 
+                    onChange={e => {
+                      const val = e.target.value as AccessLevel;
+                      setToolState(prev => ({
+                        ...prev,
+                        [tool.id]: {
+                          ...perm,
+                          sub: {
+                            ...perm.sub,
+                            [sub.id]: val
+                          }
+                        }
+                      }));
+                    }}
+                    className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs focus:border-nexus-primary outline-none text-slate-300"
+                  >
+                    <option value="none">Sin Acceso</option>
+                    <option value="read">Lectura</option>
+                    <option value="write">Editar / Usar</option>
+                  </select>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="w-full max-w-6xl mx-auto animate-fade-in text-white p-4">
       {/* HEADER */}
@@ -193,7 +367,7 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
           </div>
           <div>
             <h1 className="text-2xl font-bold">Gestión de Usuarios</h1>
-            <p className="text-slate-400 text-sm">Control de accesos, datos base y permisos granulares</p>
+            <p className="text-slate-400 text-sm">Control de accesos, permisos granulares y sub-herramientas</p>
           </div>
         </div>
         <div className="flex items-center space-x-4">
@@ -225,7 +399,7 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
           {/* USER LIST */}
-          <div className="lg:col-span-1 glass-panel rounded-2xl overflow-hidden flex flex-col max-h-[800px]">
+          <div className="lg:col-span-1 glass-panel rounded-2xl overflow-hidden flex flex-col max-h-[850px]">
             <div className="p-4 border-b border-nexus-border/50 bg-nexus-darker/50 flex justify-between items-center">
               <h2 className="font-semibold text-slate-200">Directorio</h2>
               <span className="text-xs bg-nexus-primary/20 text-nexus-primary px-2 py-1 rounded-full">{users.length}</span>
@@ -260,7 +434,7 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
                 </button>
               </div>
 
-              <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-8">
+              <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-8 max-h-[700px]">
                 
                 {/* Datos Básicos */}
                 <section>
@@ -328,7 +502,7 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
 
                 {/* Acceso a Módulos y Toggles globales */}
                 <section>
-                  <h3 className="text-sm font-bold text-nexus-primary uppercase tracking-wider mb-4 border-b border-nexus-border/50 pb-2">Configuración de Seguridad</h3>
+                  <h3 className="text-sm font-bold text-nexus-primary uppercase tracking-wider mb-4 border-b border-nexus-border/50 pb-2">Configuración de Seguridad y Sub-Permisos</h3>
                   
                   <div className="mb-6 bg-slate-800/30 border border-slate-700/50 rounded-xl overflow-hidden p-4 flex items-center justify-between cursor-pointer hover:bg-slate-800/50" onClick={() => setRequireLocation(!requireLocation)}>
                     <div>
@@ -352,25 +526,8 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
                     </div>
                     
                     {hasStock && (
-                      <div className="p-4 bg-black/20 flex flex-col space-y-4">
-                        <p className="text-xs text-blue-300 font-semibold mb-2">Permisos por Herramienta (Solo Lectura o Manipular):</p>
-                        {STOCK_TOOLS.map(tool => {
-                          const level = stockTools[tool.id] || 'none';
-                          return (
-                            <div key={tool.id} className="flex flex-col sm:flex-row sm:items-center justify-between bg-black/40 p-3 rounded-lg border border-slate-800">
-                              <span className="text-sm text-slate-300 mb-2 sm:mb-0">{tool.name}</span>
-                              <select 
-                                value={level} 
-                                onChange={e => setStockTools(prev => ({...prev, [tool.id]: e.target.value as AccessLevel}))}
-                                className="bg-nexus-dark border border-nexus-border rounded-lg px-3 py-1 text-xs focus:border-blue-400 outline-none text-slate-200"
-                              >
-                                <option value="none">Sin Acceso</option>
-                                <option value="read">Solo Lectura (Ver)</option>
-                                <option value="write">Control Total (Manipular)</option>
-                              </select>
-                            </div>
-                          );
-                        })}
+                      <div className="p-4 bg-black/20 flex flex-col space-y-3">
+                        {STOCK_TOOLS.map(tool => renderToolEditor(tool, stockTools, setStockTools))}
                       </div>
                     )}
                   </div>
@@ -389,25 +546,8 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
                     </div>
                     
                     {hasVentas && (
-                      <div className="p-4 bg-black/20 flex flex-col space-y-4">
-                        <p className="text-xs text-purple-300 font-semibold mb-2">Permisos por Herramienta (Solo Lectura o Manipular):</p>
-                        {VENTAS_TOOLS.map(tool => {
-                          const level = ventasTools[tool.id] || 'none';
-                          return (
-                            <div key={tool.id} className="flex flex-col sm:flex-row sm:items-center justify-between bg-black/40 p-3 rounded-lg border border-slate-800">
-                              <span className="text-sm text-slate-300 mb-2 sm:mb-0">{tool.name}</span>
-                              <select 
-                                value={level} 
-                                onChange={e => setVentasTools(prev => ({...prev, [tool.id]: e.target.value as AccessLevel}))}
-                                className="bg-nexus-dark border border-nexus-border rounded-lg px-3 py-1 text-xs focus:border-purple-400 outline-none text-slate-200"
-                              >
-                                <option value="none">Sin Acceso</option>
-                                <option value="read">Solo Lectura (Ver)</option>
-                                <option value="write">Control Total (Manipular)</option>
-                              </select>
-                            </div>
-                          );
-                        })}
+                      <div className="p-4 bg-black/20 flex flex-col space-y-3">
+                        {VENTAS_TOOLS.map(tool => renderToolEditor(tool, ventasTools, setVentasTools))}
                       </div>
                     )}
                   </div>
@@ -431,7 +571,7 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
             <div className="lg:col-span-2 glass-panel rounded-2xl flex flex-col items-center justify-center p-12 text-center border-dashed border-2 border-slate-700/50">
               <Shield className="w-16 h-16 text-slate-700 mb-4" />
               <h2 className="text-xl font-bold text-slate-400">Selecciona un usuario</h2>
-              <p className="text-slate-500 mt-2 max-w-md">Elige un usuario del directorio para modificar todos los datos de la base, sus accesos y permisos granulares de lectura/escritura.</p>
+              <p className="text-slate-500 mt-2 max-w-md">Elige un usuario del directorio para modificar todos los datos de la base, sus accesos y permisos granulares de lectura/escritura y sub-herramientas detalladas.</p>
             </div>
           )}
         </div>
