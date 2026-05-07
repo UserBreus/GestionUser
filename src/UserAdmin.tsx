@@ -312,21 +312,21 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
             }}
             className="bg-nexus-dark border border-nexus-border rounded-lg px-3 py-1 text-xs focus:border-nexus-primary outline-none text-slate-200 ml-8 sm:ml-0"
           >
-            <option value="none">Sin Acceso</option>
-            <option value="read">Solo Lectura (Ver)</option>
-            <option value="write">Control Total (Editar)</option>
+            <option value="none">🚫 Bloqueado (Oculto)</option>
+            <option value="read">👁️ Solo Visión (Lectura)</option>
+            <option value="write">✅ Acceso Total (Entrar y Usar)</option>
           </select>
         </div>
 
         {/* Sub Tools Panel */}
         {hasSub && isExpanded && (
           <div className="bg-black/60 p-3 pl-12 border-t border-slate-800 space-y-3">
-            <p className="text-xs text-slate-500 mb-2">Permisos Específicos:</p>
+            <p className="text-xs text-slate-500 mb-2">Visibilidad de Campos y Botones Internos:</p>
             {tool.subTools.map((sub: any) => {
               const subAccess = perm.sub[sub.id] || 'none';
               return (
-                <div key={sub.id} className="flex flex-col sm:flex-row sm:items-center justify-between">
-                  <span className="text-xs text-slate-400 mb-1 sm:mb-0">{sub.name}</span>
+                <div key={sub.id} className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800/50 pb-2 last:border-0 last:pb-0">
+                  <span className="text-xs text-slate-300 mb-1 sm:mb-0">{sub.name}</span>
                   <select 
                     value={subAccess} 
                     onChange={e => {
@@ -342,11 +342,11 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
                         }
                       }));
                     }}
-                    className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs focus:border-nexus-primary outline-none text-slate-300"
+                    className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs focus:border-nexus-primary outline-none text-slate-300 min-w-[160px]"
                   >
-                    <option value="none">Sin Acceso</option>
-                    <option value="read">Lectura</option>
-                    <option value="write">Editar / Usar</option>
+                    <option value="none">🚫 Ocultar botón/campo</option>
+                    <option value="read">👁️ Solo ver (Deshabilitado)</option>
+                    <option value="write">✅ Visible y Habilitado</option>
                   </select>
                 </div>
               );
