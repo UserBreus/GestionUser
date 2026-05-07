@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { executeAWSQuery } from './lib/aws-client';
-import { Users, X, Save, Edit2, Shield, Plus, ToggleLeft, ToggleRight, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Users, X, Save, Edit2, Shield, Plus, ToggleLeft, ToggleRight, Loader2, ChevronDown, ChevronRight, Camera } from 'lucide-react';
+import { AvatarCreatorModal } from './components/AvatarCreatorModal';
 
 interface User {
   id: string;
@@ -146,6 +147,9 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
   // Role Management State
   const [newRoleName, setNewRoleName] = useState('');
   const [showRoleManager, setShowRoleManager] = useState(false);
+  
+  // Avatar Creator State
+  const [isAvatarCreatorOpen, setIsAvatarCreatorOpen] = useState(false);
   
   const [stockTools, setStockTools] = useState<Record<string, ToolPermission>>({});
   const [ventasTools, setVentasTools] = useState<Record<string, ToolPermission>>({});
@@ -622,14 +626,33 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
                         className="w-full bg-nexus-dark border border-nexus-border rounded-lg px-3 py-2 text-sm focus:border-nexus-primary outline-none"
                       />
                     </div>
-                    <div>
-                      <label className="block text-xs text-slate-400 mb-1">URL Avatar (Opcional)</label>
-                      <input 
-                        type="text" 
-                        value={formAvatar} 
-                        onChange={e => setFormAvatar(e.target.value)}
-                        className="w-full bg-nexus-dark border border-nexus-border rounded-lg px-3 py-2 text-sm focus:border-nexus-primary outline-none"
-                      />
+                    <div className="col-span-1 md:col-span-2">
+                      <label className="block text-xs text-slate-400 mb-2">Avatar de Usuario (Opcional)</label>
+                      <div className="flex items-center gap-4 bg-nexus-darker border border-nexus-border/50 p-3 rounded-xl">
+                        {formAvatar ? (
+                          <img src={formAvatar} alt="Avatar" className="w-16 h-16 rounded-2xl object-cover ring-2 ring-nexus-primary/50" />
+                        ) : (
+                          <div className="w-16 h-16 rounded-2xl bg-slate-800 flex items-center justify-center border border-slate-700">
+                            <Users className="w-6 h-6 text-slate-500" />
+                          </div>
+                        )}
+                        <div className="flex-1 space-y-2">
+                          <input 
+                            type="text" 
+                            placeholder="URL de imagen externa..."
+                            value={formAvatar} 
+                            onChange={e => setFormAvatar(e.target.value)}
+                            className="w-full bg-nexus-dark border border-nexus-border rounded-lg px-3 py-1.5 text-xs focus:border-nexus-primary outline-none"
+                          />
+                          <button 
+                            type="button"
+                            onClick={() => setIsAvatarCreatorOpen(true)}
+                            className="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-2"
+                          >
+                            <Camera className="w-4 h-4" /> Diseñar Avatar y Estampar Logo
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </section>
@@ -729,6 +752,15 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
           )}
         </div>
       )}
+      <AvatarCreatorModal 
+        isOpen={isAvatarCreatorOpen}
+        onClose={() => setIsAvatarCreatorOpen(false)}
+        initialSeed={formId || 'nexus'}
+        onSave={(base64) => {
+          setFormAvatar(base64);
+          setIsAvatarCreatorOpen(false);
+        }}
+      />
     </div>
   );
 }
