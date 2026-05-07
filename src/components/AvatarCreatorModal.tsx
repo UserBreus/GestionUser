@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Camera, X, CheckCircle, Loader2 } from 'lucide-react';
+import { useState } from 'react';
+import { X, CheckCircle, Loader2 } from 'lucide-react';
 
 const UserLogo = ({ className, color }: { className?: string, color?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 74.93 114.93" className={className} style={{ color }}>
