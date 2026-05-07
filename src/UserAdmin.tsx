@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { executeAWSQuery } from './lib/aws-client';
-import { Users, X, Save, Edit2, Shield, Plus, Key, ToggleLeft, ToggleRight, Loader2, Check } from 'lucide-react';
+import { Users, X, Save, Edit2, Shield, Plus, ToggleLeft, ToggleRight, Loader2, Check } from 'lucide-react';
 
 interface User {
   id: string;
@@ -111,14 +111,6 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
     setHasVentas(false);
     setStockTools([]);
     setVentasTools([]);
-  };
-
-  const toggleStockTool = (toolId: string) => {
-    setStockTools(prev => prev.includes(toolId) ? prev.filter(t => t !== toolId) : [...prev, toolId]);
-  };
-
-  const toggleVentasTool = (toolId: string) => {
-    setVentasTools(prev => prev.includes(toolId) ? prev.filter(t => t !== toolId) : [...prev, toolId]);
   };
 
   const handleSave = async () => {
@@ -310,12 +302,12 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
                     {hasStock && (
                       <div className="p-4 border-t border-blue-500/10 bg-black/20 grid grid-cols-1 md:grid-cols-2 gap-3">
                         {STOCK_TOOLS.map(tool => (
-                          <label key={tool.id} className="flex items-center space-x-3 cursor-pointer group">
+                          <div key={tool.id} onClick={() => setStockTools(prev => prev.includes(tool.id) ? prev.filter(t => t !== tool.id) : [...prev, tool.id])} className="flex items-center space-x-3 cursor-pointer group">
                             <div className={`w-5 h-5 rounded border flex items-center justify-center ${stockTools.includes(tool.id) ? 'bg-blue-500 border-blue-500' : 'border-slate-600 group-hover:border-blue-400'}`}>
                               {stockTools.includes(tool.id) && <Check className="w-3 h-3 text-white" />}
                             </div>
                             <span className="text-sm text-slate-300 group-hover:text-white">{tool.name}</span>
-                          </label>
+                          </div>
                         ))}
                       </div>
                     )}
@@ -337,12 +329,12 @@ export default function UserAdmin({ onBack }: { onBack: () => void }) {
                     {hasVentas && (
                       <div className="p-4 border-t border-purple-500/10 bg-black/20 grid grid-cols-1 md:grid-cols-2 gap-3">
                         {VENTAS_TOOLS.map(tool => (
-                          <label key={tool.id} className="flex items-center space-x-3 cursor-pointer group">
+                          <div key={tool.id} onClick={() => setVentasTools(prev => prev.includes(tool.id) ? prev.filter(t => t !== tool.id) : [...prev, tool.id])} className="flex items-center space-x-3 cursor-pointer group">
                             <div className={`w-5 h-5 rounded border flex items-center justify-center ${ventasTools.includes(tool.id) ? 'bg-purple-500 border-purple-500' : 'border-slate-600 group-hover:border-purple-400'}`}>
                               {ventasTools.includes(tool.id) && <Check className="w-3 h-3 text-white" />}
                             </div>
                             <span className="text-sm text-slate-300 group-hover:text-white">{tool.name}</span>
-                          </label>
+                          </div>
                         ))}
                       </div>
                     )}
